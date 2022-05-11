@@ -18,9 +18,10 @@ or
 make install
 ```
 
-Unpack the data:
+Download and unpack the data:
 ```
-tar xvf data/datasets.tar.gz
+wget https://fm-data-tasks.s3.us-west-1.amazonaws.com/datasets.tar.gz -P data
+tar xvf data/datasets.tar.gz -C data/
 ```
 
 # Setup
@@ -31,3 +32,27 @@ export DATASET_PATH="$PWD/data/datasets"
 ```
 
 # Run
+To run inference, use
+```
+python3 -m fm_data_tasks.run_infernece --help
+```
+To see options. Some examples are a follows.
+
+To run 10 dry run examples for Fodors Zagats entity matching with random selection,
+```
+python3 -m fm_data_tasks.run_inference \
+    --dry_run \
+    --num_run 10 \
+    --sample_method random \
+    --data_dir data/datasets/entity_matching/structured/Fodors-Zagats
+```
+
+To run 100 examples for 3 trials for Restaurant data imputation on the test data with manual selection,
+```
+python3 -m fm_data_tasks.run_inference \
+    --num_run 100 \
+    --num_trials 3 \
+    --do_test \
+    --sample_method manual \
+    --data_dir data/datasets/data_imputation/Restaurant
+```
