@@ -26,12 +26,16 @@ DATA2TASK = {
 
 COLS_TO_DROP = {
     f"{DATASET_PATH}/entity_matching/structured/Amazon-Google": [],
-    f"{DATASET_PATH}/entity_matching/structured/Beer": [],
+    f"{DATASET_PATH}/entity_matching/structured/Beer": ["Style", "ABV"],
     f"{DATASET_PATH}/entity_matching/structured/DBLP-ACM": [],
     f"{DATASET_PATH}/entity_matching/structured/DBLP-GoogleScholar": [],
     f"{DATASET_PATH}/entity_matching/structured/Fodors-Zagats": [],
     f"{DATASET_PATH}/entity_matching/structured/iTunes-Amazon": ["CopyRight"],
-    f"{DATASET_PATH}/entity_matching/structured/Walmart-Amazon": [],
+    f"{DATASET_PATH}/entity_matching/structured/Walmart-Amazon": [
+        "category",
+        "price",
+        "brand",
+    ],
     f"{DATASET_PATH}/data_imputation/Buy": [],
     f"{DATASET_PATH}/data_imputation/Restaurant": [],
     f"{DATASET_PATH}/error_detection/Hospital": [],
@@ -64,7 +68,9 @@ def strip_value(val: str):
     return val.replace('"', "").replace("/", "-")
 
 
-def serialize_row(row: pd.core.series.Series, column_map: Dict[str, str]) -> str:
+def serialize_row(
+    row: pd.core.series.Series, column_map: Dict[str, str]
+) -> str:
     """Turn structured row into string."""
     res = []
     for c_og, c_map in column_map.items():
@@ -81,8 +87,8 @@ def serialize_match_pair(
 ) -> str:
     """Turn structured pair of entities into string for matching."""
     res = (
-        f"Row A: {serialize_row(row, column_mapA)} ;"
-        f" Row B: {serialize_row(row, column_mapB)} ? "
+        f"Product A is {serialize_row(row, column_mapA)}."
+        f"Product B is {serialize_row(row, column_mapB)}. Are Product A and Product B the same?"
     )
     if add_prefix:
         res = f"{INSTRUCTION_DICT[task]} {res}"
@@ -97,7 +103,9 @@ def serialize_imputation(
     task: str,
 ) -> str:
     """Turn single entity into string for imputation."""
-    assert impute_col not in column_map, f"{impute_col} cannot be in column map"
+    assert (
+        impute_col not in column_map
+    ), f"{impute_col} cannot be in column map"
     res = f"{serialize_row(row, column_map)} | {impute_col}: "
     if add_prefix:
         res = f"{INSTRUCTION_DICT[task]} {res}"
@@ -130,7 +138,11 @@ def read_blocked_pairs(
 
     mergedA = pd.merge(labels, tableA, right_on="id", left_on="ltable_id")
     merged = pd.merge(
-        mergedA, tableB, right_on="id", left_on="rtable_id", suffixes=("_A", "_B")
+        mergedA,
+        tableB,
+        right_on="id",
+        left_on="rtable_id",
+        suffixes=("_A", "_B"),
     )
 
     merged["text"] = merged.apply(
@@ -153,7 +165,9 @@ def read_imputation_single(
     column_map = {c: c for c in table.columns if c != "id" and c != impute_col}
 
     table["text"] = table.apply(
-        lambda row: serialize_imputation(row, column_map, impute_col, add_prefix, task),
+        lambda row: serialize_imputation(
+            row, column_map, impute_col, add_prefix, task
+        ),
         axis=1,
     )
     table["label_str"] = table[impute_col].apply(lambda x: f"{x}\n")
@@ -234,7 +248,10 @@ def read_data(
             table.drop(c, axis=1, inplace=True)
         label_col = "is_clean"
         read_data_func = partial(
-            read_error_detection_single, table=table, add_prefix=add_prefix, task=task
+            read_error_detection_single,
+            table=table,
+            add_prefix=add_prefix,
+            task=task,
         )
     else:
         raise ValueError(f"Task {task} not recognized.")
@@ -246,7 +263,9 @@ def read_data(
         label_cnts = data_files_sep["train"].groupby(label_col).count()
         logger.info(f"Class balanced: class counts {label_cnts}")
         sample_per_class = label_cnts.min()["text"]
-        logger.info(f"Class balanced: : train sample per class: {sample_per_class}")
+        logger.info(
+            f"Class balanced: : train sample per class: {sample_per_class}"
+        )
         data_files_sep["train"] = (
             data_files_sep["train"]
             .groupby(label_col, group_keys=False)
@@ -254,7 +273,9 @@ def read_data(
         )
     # Shuffle train data
     data_files_sep["train"] = (
-        data_files_sep["train"].sample(frac=1, random_state=42).reset_index(drop=True)
+        data_files_sep["train"]
+        .sample(frac=1, random_state=42)
+        .reset_index(drop=True)
     )
     if max_train_samples > 0:
         orig_train_len = len(data_files_sep["train"])
