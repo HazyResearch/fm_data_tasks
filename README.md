@@ -20,6 +20,7 @@ make install
 
 Download and unpack the data:
 ```
+mkdir data
 wget https://fm-data-tasks.s3.us-west-1.amazonaws.com/datasets.tar.gz -P data
 tar xvf data/datasets.tar.gz -C data/
 ```
@@ -36,7 +37,11 @@ To run inference, use
 ```
 python3 -m fm_data_tasks.run_infernece --help
 ```
-To see options. Some examples are a follows.
+To see options.
+
+To see a full set of scripts with output results for 200 examples samples of each dataset, see `scripts/run_results.zsh`.
+
+Some examples are a follows.
 
 To run 10 dry run examples for Fodors Zagats entity matching with random selection,
 ```

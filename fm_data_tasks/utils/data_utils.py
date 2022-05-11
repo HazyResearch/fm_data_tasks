@@ -46,6 +46,16 @@ IMPUTE_COLS = {
     f"{DATASET_PATH}/data_imputation/Restaurant": "city",
 }
 
+MATCH_PROD_NAME = {
+    f"{DATASET_PATH}/entity_matching/structured/Amazon-Google": "Product",
+    f"{DATASET_PATH}/entity_matching/structured/Beer": "Product",
+    f"{DATASET_PATH}/entity_matching/structured/DBLP-ACM": "Product",
+    f"{DATASET_PATH}/entity_matching/structured/DBLP-GoogleScholar": "Product",
+    f"{DATASET_PATH}/entity_matching/structured/Fodors-Zagats": "Product",
+    f"{DATASET_PATH}/entity_matching/structured/iTunes-Amazon": "Song",
+    f"{DATASET_PATH}/entity_matching/structured/Walmart-Amazon": "Product",
+}
+
 DATA2INSTRUCT = {
     f"{DATASET_PATH}/entity_matching/structured/Amazon-Google": "Are Product A and Product B the same? Yes or No?",
     f"{DATASET_PATH}/entity_matching/structured/Beer": "Are Product A and Product B the same? Yes or No?",
@@ -95,11 +105,12 @@ def serialize_match_pair(
     add_prefix: bool,
     task: str,
     sep_tok: str,
+    prod_name: str,
 ) -> str:
     """Turn structured pair of entities into string for matching."""
     res = (
-        f"Product A is {serialize_row(row, column_mapA, sep_tok)}."
-        f" Product B is {serialize_row(row, column_mapB, sep_tok)}. "
+        f"{prod_name} A is {serialize_row(row, column_mapA, sep_tok)}."
+        f" {prod_name} B is {serialize_row(row, column_mapB, sep_tok)}. "
         f"Are A and B the same? "
     )
     if add_prefix:
@@ -148,6 +159,7 @@ def read_blocked_pairs(
     add_prefix: bool,
     task: str,
     sep_tok: str,
+    prod_name: str,
 ) -> pd.DataFrame:
     """Read in pre-blocked pairs with T/F match labels."""
     column_mapA = {f"{c}_A": c for c in tableA.columns if c != "id"}
@@ -162,7 +174,7 @@ def read_blocked_pairs(
 
     merged["text"] = merged.apply(
         lambda row: serialize_match_pair(
-            row, column_mapA, column_mapB, add_prefix, task, sep_tok
+            row, column_mapA, column_mapB, add_prefix, task, sep_tok, prod_name
         ),
         axis=1,
     )
@@ -243,6 +255,7 @@ def read_data(
             add_prefix=add_prefix,
             task=task,
             sep_tok=sep_tok,
+            prod_name=MATCH_PROD_NAME[data_dir],
         )
     elif task == "data_imputation":
         train_file = data_dir_p / "train.csv"
@@ -280,9 +293,8 @@ def read_data(
     if class_balanced and task != "data_imputation":
         # Class balance sample the train data
         label_cnts = data_files_sep["train"].groupby(label_col).count()
-        logger.info(f"Class balanced: class counts {label_cnts}")
         sample_per_class = label_cnts.min()["text"]
-        logger.info(f"Class balanced: : train sample per class: {sample_per_class}")
+        logger.info(f"Class balanced: train sample per class: {sample_per_class}")
         data_files_sep["train"] = (
             data_files_sep["train"]
             .groupby(label_col, group_keys=False)
