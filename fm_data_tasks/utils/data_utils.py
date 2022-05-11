@@ -9,7 +9,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-DATASET_PATH = os.environ.get("DATASET_PATH", "data/datasets")
+DATASET_PATH = os.environ.get("DATASET_PATH", Path("data/datasets").resolve())
 
 DATA2TASK = {
     f"{DATASET_PATH}/entity_matching/structured/Amazon-Google": "entity_matching",
@@ -46,8 +46,21 @@ IMPUTE_COLS = {
     f"{DATASET_PATH}/data_imputation/Restaurant": "city",
 }
 
+DATA2INSTRUCT = {
+    f"{DATASET_PATH}/entity_matching/structured/Amazon-Google": "Are Product A and Product B the same? Yes or No?",
+    f"{DATASET_PATH}/entity_matching/structured/Beer": "Are Product A and Product B the same? Yes or No?",
+    f"{DATASET_PATH}/entity_matching/structured/DBLP-ACM": "Are Product A and Product B the same? Yes or No?",
+    f"{DATASET_PATH}/entity_matching/structured/DBLP-GoogleScholar": "Are Product A and Product B the same? Yes or No?",
+    f"{DATASET_PATH}/entity_matching/structured/Fodors-Zagats": "Are Product A and Product B the same? Yes or No?",
+    f"{DATASET_PATH}/entity_matching/structured/iTunes-Amazon": "Are Song A and Song B the same? Yes or No?",
+    f"{DATASET_PATH}/entity_matching/structured/Walmart-Amazon": "Are Product A and Product B the same? Yes or No?",
+    f"{DATASET_PATH}/data_imputation/Buy": "Who is the manufacturer?",
+    f"{DATASET_PATH}/data_imputation/Restaurant": "What is the city?",
+    f"{DATASET_PATH}/error_detection/Hospital": "error_detection",
+}
+
 INSTRUCTION_DICT = {
-    "entity_matching": "Are Row A and Row B the same? Yes or No?",
+    "entity_matching": "Are Product A and Product B the same? Yes or No?",
     "data_imputation": "What is the missing value?",
     "error_detection": "Is there an error? Yes or No?",
 }
@@ -63,17 +76,16 @@ def sample_train_data(train: pd.DataFrame, n_rows: int):
     return res
 
 
-def strip_value(val: str):
-    """Strip values."""
-    return val.replace('"', "").replace("/", "-")
-
-
-def serialize_row(row: pd.core.series.Series, column_map: Dict[str, str]) -> str:
+def serialize_row(
+    row: pd.core.series.Series, column_map: Dict[str, str], sep_tok: str
+) -> str:
     """Turn structured row into string."""
     res = []
     for c_og, c_map in column_map.items():
         res.append(f"{c_map}: {row[c_og]}".strip())
-    return " ; ".join(res)
+    if len(sep_tok) > 0 and sep_tok != ".":
+        sep_tok = f" {sep_tok}"
+    return f"{sep_tok} ".join(res)
 
 
 def serialize_match_pair(
@@ -82,11 +94,13 @@ def serialize_match_pair(
     column_mapB: Dict[str, str],
     add_prefix: bool,
     task: str,
+    sep_tok: str,
 ) -> str:
     """Turn structured pair of entities into string for matching."""
     res = (
-        f"Product A is {serialize_row(row, column_mapA)}."
-        f"Product B is {serialize_row(row, column_mapB)}. Are Product A and Product B the same?"
+        f"Product A is {serialize_row(row, column_mapA, sep_tok)}."
+        f" Product B is {serialize_row(row, column_mapB, sep_tok)}. "
+        f"Are A and B the same? "
     )
     if add_prefix:
         res = f"{INSTRUCTION_DICT[task]} {res}"
@@ -99,21 +113,29 @@ def serialize_imputation(
     impute_col: str,
     add_prefix: bool,
     task: str,
+    sep_tok: str,
 ) -> str:
     """Turn single entity into string for imputation."""
     assert impute_col not in column_map, f"{impute_col} cannot be in column map"
-    res = f"{serialize_row(row, column_map)} | {impute_col}: "
+    # Rename to avoid passing white spaced sep token to serialize_row
+    sep_tok_ws = sep_tok
+    if len(sep_tok) > 0 and sep_tok != ".":
+        sep_tok_ws = f" {sep_tok}"
+    res = f"{serialize_row(row, column_map, sep_tok)}{sep_tok_ws} {impute_col}? "
     if add_prefix:
         res = f"{INSTRUCTION_DICT[task]} {res}"
     return res
 
 
 def serialize_error_detection(
-    row: pd.core.series.Series, add_prefix: bool, task: str
+    row: pd.core.series.Series,
+    add_prefix: bool,
+    task: str,
+    sep_tok: str,
 ) -> str:
     """Turn single cell into string for error detection."""
     column_map = {row["col_name"]: row["col_name"]}
-    res = f"{serialize_row(row, column_map)} ? "
+    res = f"Is there a spelling error in {serialize_row(row, column_map, sep_tok)}? "
     if add_prefix:
         res = f"{INSTRUCTION_DICT[task]} {res}"
     return res
@@ -125,6 +147,7 @@ def read_blocked_pairs(
     tableB: pd.DataFrame,
     add_prefix: bool,
     task: str,
+    sep_tok: str,
 ) -> pd.DataFrame:
     """Read in pre-blocked pairs with T/F match labels."""
     column_mapA = {f"{c}_A": c for c in tableA.columns if c != "id"}
@@ -139,7 +162,7 @@ def read_blocked_pairs(
 
     merged["text"] = merged.apply(
         lambda row: serialize_match_pair(
-            row, column_mapA, column_mapB, add_prefix, task
+            row, column_mapA, column_mapB, add_prefix, task, sep_tok
         ),
         axis=1,
     )
@@ -150,14 +173,16 @@ def read_blocked_pairs(
 
 
 def read_imputation_single(
-    split_path: str, impute_col: str, add_prefix: bool, task: str
+    split_path: str, impute_col: str, add_prefix: bool, task: str, sep_tok: str
 ) -> pd.DataFrame:
     """Read in table and create label impute col."""
     table = pd.read_csv(split_path)
     column_map = {c: c for c in table.columns if c != "id" and c != impute_col}
 
     table["text"] = table.apply(
-        lambda row: serialize_imputation(row, column_map, impute_col, add_prefix, task),
+        lambda row: serialize_imputation(
+            row, column_map, impute_col, add_prefix, task, sep_tok
+        ),
         axis=1,
     )
     table["label_str"] = table[impute_col].apply(lambda x: f"{x}\n")
@@ -165,7 +190,7 @@ def read_imputation_single(
 
 
 def read_error_detection_single(
-    split_path: str, table: pd.DataFrame, add_prefix: bool, task: str
+    split_path: str, table: pd.DataFrame, add_prefix: bool, task: str, sep_tok: str
 ) -> pd.DataFrame:
     """Read in table and create label impute col."""
     # row_id, col_name, is_clean
@@ -173,7 +198,7 @@ def read_error_detection_single(
     merged = pd.merge(labels, table, left_on="row_id", right_index=True)
 
     merged["text"] = merged.apply(
-        lambda row: serialize_error_detection(row, add_prefix, task), axis=1
+        lambda row: serialize_error_detection(row, add_prefix, task, sep_tok), axis=1
     )
     merged["label_str"] = merged.apply(
         lambda row: "No\n" if row["is_clean"] == 1 else "Yes\n", axis=1
@@ -186,6 +211,7 @@ def read_data(
     class_balanced: bool = False,
     add_prefix: bool = False,
     max_train_samples: float = -1,
+    sep_tok: str = "",
 ):
     """Read in data where each directory is unique for a task."""
     data_files_sep = {"test": {}, "train": {}, "validation": {}}
@@ -216,6 +242,7 @@ def read_data(
             tableB=tableB,
             add_prefix=add_prefix,
             task=task,
+            sep_tok=sep_tok,
         )
     elif task == "data_imputation":
         train_file = data_dir_p / "train.csv"
@@ -227,6 +254,7 @@ def read_data(
             impute_col=label_col,
             add_prefix=add_prefix,
             task=task,
+            sep_tok=sep_tok,
         )
     elif task == "error_detection":
         train_file = data_dir_p / "train.csv"
@@ -238,7 +266,11 @@ def read_data(
             table.drop(c, axis=1, inplace=True)
         label_col = "is_clean"
         read_data_func = partial(
-            read_error_detection_single, table=table, add_prefix=add_prefix, task=task
+            read_error_detection_single,
+            table=table,
+            add_prefix=add_prefix,
+            task=task,
+            sep_tok=sep_tok,
         )
     else:
         raise ValueError(f"Task {task} not recognized.")

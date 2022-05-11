@@ -13,6 +13,7 @@ import fm_data_tasks.utils.data_utils as data_utils
 import fm_data_tasks.utils.prompt_utils as prompt_utils
 from fm_data_tasks.utils.utils import compute_metrics, setup_logger
 
+logging.getLogger("openai").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 openai.api_key = os.environ.get("OPENAI_API_KEY")
@@ -42,6 +43,9 @@ def parse_args():
         action="store_true",
     )
     parser.add_argument(
+        "--sep_tok", type=str, help="Separate for attr: val pairs in row", default="."
+    )
+    parser.add_argument(
         "--model_name",
         type=str,
         default="text-davinci-002",
@@ -62,7 +66,7 @@ def parse_args():
         default=1,
     )
     parser.add_argument(
-        "--num_print", type=int, help="Number example prompts to print", default=5
+        "--num_print", type=int, help="Number example prompts to print", default=10
     )
     parser.add_argument(
         "--add_task_instruction", help="Add task instruction", action="store_true"
@@ -73,7 +77,7 @@ def parse_args():
     # Open AI args
     parser.add_argument("--temperature", type=float, help="Temperature", default=0.0)
     parser.add_argument(
-        "--max_tokens", type=float, help="Max tokens to generate", default=3
+        "--max_tokens", type=int, help="Max tokens to generate", default=3
     )
 
     args = parser.parse_args()
@@ -100,14 +104,14 @@ def main():
         class_balanced=args.class_balanced,
         add_prefix=False,
         max_train_samples=-1,
+        sep_tok=args.sep_tok,
     )
     if test_file not in pd_data_files:
         raise ValueError(f"Need {test_file} data")
 
     train_data = pd_data_files["train"]
     test_data = pd_data_files[test_file]
-    task = data_utils.DATA2TASK[args.data_dir]
-    task_instruction = data_utils.INSTRUCTION_DICT[task]
+    task_instruction = data_utils.DATA2INSTRUCT[args.data_dir]
 
     if args.num_run == -1:
         args.num_run = test_data.shape[0]
@@ -119,6 +123,7 @@ def main():
 
     trial_metrics = {"prec": [], "rec": [], "f1": [], "acc": []}
     for trial_num in range(args.num_trials):
+        np.random.seed(args.seed + trial_num)
         entries = []
         prefixes = []
         preds = []
@@ -128,7 +133,7 @@ def main():
             entries.append(serialized_r)
 
             if args.sample_method == "manual":
-                prefix_exs = prompt_utils.get_manual_prompt[Path(args.train_data).stem]
+                prefix_exs = prompt_utils.get_manual_prompt(Path(args.data_dir).name)
             else:
                 prefix_exs_rows = data_utils.sample_train_data(train_data, args.k)
                 serialized_prefixes = [
@@ -137,11 +142,11 @@ def main():
                         prefix_exs_rows["text"], prefix_exs_rows["label_str"]
                     )
                 ]
-                prefix_exs = "\n\n".join(serialized_prefixes)
+                prefix_exs = "\n".join(serialized_prefixes)
             if args.add_task_instruction:
-                prefixes.append(task_instruction + " " + prefix_exs + "\n\n")
+                prefixes.append(task_instruction + " " + prefix_exs + "\n")
             else:
-                prefixes.append(prefix_exs + "\n\n")
+                prefixes.append(prefix_exs + "\n")
 
         # Send to model for predictions
         gt = test_data["label_str"]
@@ -153,7 +158,7 @@ def main():
         ):
             if len(model_inputs) >= args.num_run:
                 break
-            string = data_utils.strip_value(prefix + query).lstrip()
+            string = (prefix + query).strip()
             model_inputs.append(string)
 
             if num_print > 0:
@@ -177,13 +182,13 @@ def main():
                 # Take tokens before first \n
                 vals = " ".join([val.strip().split("\n")[0] for val in vals]).strip()
                 if num_print > 0:
-                    logger.info("====>", vals, "<====")
+                    logger.info(f"====> {vals} <====")
                 preds.append(vals)
             else:
                 preds.append("")
             num_print -= 1
 
-        # Save predictions
+        # Save trial predictions
         save_data = test_data.iloc[: args.num_run].copy(deep=True)
         gt = gt[: args.num_run]
         save_data["preds"] = preds
@@ -200,7 +205,6 @@ def main():
         trial_metrics["acc"].append(acc)
         trial_metrics["f1"].append(f1)
 
-        # Save trial predictions
         output_file = (
             Path(args.output_dir)
             / f"{Path(args.data_dir).stem}"
