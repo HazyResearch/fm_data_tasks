@@ -26,12 +26,16 @@ DATA2TASK = {
 
 COLS_TO_DROP = {
     f"{DATASET_PATH}/entity_matching/structured/Amazon-Google": [],
-    f"{DATASET_PATH}/entity_matching/structured/Beer": [],
+    f"{DATASET_PATH}/entity_matching/structured/Beer": ["Style", "ABV"],
     f"{DATASET_PATH}/entity_matching/structured/DBLP-ACM": [],
     f"{DATASET_PATH}/entity_matching/structured/DBLP-GoogleScholar": [],
     f"{DATASET_PATH}/entity_matching/structured/Fodors-Zagats": [],
     f"{DATASET_PATH}/entity_matching/structured/iTunes-Amazon": ["CopyRight"],
-    f"{DATASET_PATH}/entity_matching/structured/Walmart-Amazon": [],
+    f"{DATASET_PATH}/entity_matching/structured/Walmart-Amazon": [
+        "category",
+        "price",
+        "brand",
+    ],
     f"{DATASET_PATH}/data_imputation/Buy": [],
     f"{DATASET_PATH}/data_imputation/Restaurant": [],
     f"{DATASET_PATH}/error_detection/Hospital": [],
@@ -81,8 +85,8 @@ def serialize_match_pair(
 ) -> str:
     """Turn structured pair of entities into string for matching."""
     res = (
-        f"Row A: {serialize_row(row, column_mapA)} ;"
-        f" Row B: {serialize_row(row, column_mapB)} ? "
+        f"Product A is {serialize_row(row, column_mapA)}."
+        f"Product B is {serialize_row(row, column_mapB)}. Are Product A and Product B the same?"
     )
     if add_prefix:
         res = f"{INSTRUCTION_DICT[task]} {res}"
