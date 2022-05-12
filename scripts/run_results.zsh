@@ -1,6 +1,6 @@
 #!/usr/bin/zsh
 
-# Commands to run 200 examples for each dataset with metrics
+# Commands to run 200 random and manual examples for each dataset with metrics
 
 # Entity Matching Fodors-Zagats
 poetry run python3 -m fm_data_tasks.run_inference --k 10 --sample_method random --data_dir data/datasets/entity_matching/structured/Fodors-Zagats  --do_test --num_run 200 --add_task_instruction --class_balanced
