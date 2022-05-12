@@ -36,7 +36,15 @@ def parse_args():
         type=str,
         help="Example generation method",
         default="random",
-        choices=["random", "manual"],
+        choices=["random", "manual", "validation_clusters"],
+    )
+    parser.add_argument(
+        "--validation_path",
+        type=str,
+        default=None,
+        help="Path to validation data error feather file. I.e., the result of \
+            running `run_inference` of validation data. Used with \
+            validation_clusters method.",
     )
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument(
@@ -91,6 +99,11 @@ def main():
     args = parse_args()
     if args.num_trials < 1:
         raise ValueError("num_trials must be greater than 0.")
+    if args.sample_method == "validation_clusters" and args.validation_path is None:
+        raise ValueError(
+            "validation_path must be provided when \
+             sample_method is validation_clusters."
+        )
     # Get absolute path
     args.data_dir = str(Path(args.data_dir).resolve())
     setup_logger(args.output_dir)
@@ -127,6 +140,8 @@ def main():
     # Setup client
     client = Client(args.cache_file)
     trial_metrics = {"prec": [], "rec": [], "f1": [], "acc": []}
+    # Cache prefix for manual and validation_clusters
+    saved_prefix = None
     for trial_num in range(args.num_trials):
         np.random.seed(args.seed + trial_num)
         entries = []
@@ -138,7 +153,19 @@ def main():
             entries.append(serialized_r)
 
             if args.sample_method == "manual":
-                prefix_exs = prompt_utils.get_manual_prompt(Path(args.data_dir).name)
+                if saved_prefix is None:
+                    saved_prefix = prompt_utils.get_manual_prompt(
+                        Path(args.data_dir).name
+                    )
+                prefix_exs = saved_prefix
+            elif args.sample_method == "validation_clusters":
+                if saved_prefix is None:
+                    logger.info("Generating validation cluster prompt.")
+                    saved_prefix = prompt_utils.get_validation_prompt(
+                        args.validation_path,
+                        num_examples=args.k,
+                    )
+                prefix_exs = saved_prefix
             else:
                 prefix_exs_rows = data_utils.sample_train_data(train_data, args.k)
                 serialized_prefixes = [
