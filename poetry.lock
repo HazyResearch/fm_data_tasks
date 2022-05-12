@@ -998,6 +998,17 @@ optional = false
 python-versions = ">=3.6"
 
 [[package]]
+<<<<<<< HEAD
+=======
+name = "sqlitedict"
+version = "2.0.0"
+description = "Persistent dict in Python, backed up by sqlite3 and pickle, multithread-safe."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+>>>>>>> b1aca98022bd4498a3e92d96c41e304424584a6b
 name = "stack-data"
 version = "0.2.0"
 description = "Extract data from python stack frames and tracebacks for informative displays"
@@ -1050,6 +1061,7 @@ optional = false
 python-versions = ">=3.7"
 
 [[package]]
+<<<<<<< HEAD
 name = "torch"
 version = "1.11.0+cu113"
 description = "Tensors and Dynamic neural networks in Python with strong GPU acceleration"
@@ -1065,6 +1077,8 @@ type = "url"
 url = "https://download.pytorch.org/whl/cu113/torch-1.11.0%2Bcu113-cp310-cp310-linux_x86_64.whl"
 
 [[package]]
+=======
+>>>>>>> b1aca98022bd4498a3e92d96c41e304424584a6b
 name = "tqdm"
 version = "4.64.0"
 description = "Fast, Extensible Progress Meter"
@@ -1264,7 +1278,11 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.11"
+<<<<<<< HEAD
 content-hash = "4f86c809f2a6e4e952454a3238cc151c4b940865d135af6b72e2b80ba10a8417"
+=======
+content-hash = "abe19a843a2acf3f0c6abeb45eb69e84a7b51f22f8c4ead005355b6e2e9dbf32"
+>>>>>>> b1aca98022bd4498a3e92d96c41e304424584a6b
 
 [metadata.files]
 aiohttp = [
@@ -2145,6 +2163,12 @@ smmap = [
     {file = "smmap-5.0.0-py3-none-any.whl", hash = "sha256:2aba19d6a040e78d8b09de5c57e96207b09ed71d8e55ce0959eeee6c8e190d94"},
     {file = "smmap-5.0.0.tar.gz", hash = "sha256:c840e62059cd3be204b0c9c9f74be2c09d5648eddd4580d9314c3ecde0b30936"},
 ]
+<<<<<<< HEAD
+=======
+sqlitedict = [
+    {file = "sqlitedict-2.0.0.tar.gz", hash = "sha256:23a370416f4e1e962daa293382f3a8dbc4127e6a0abc06a5d4e58e6902f05d17"},
+]
+>>>>>>> b1aca98022bd4498a3e92d96c41e304424584a6b
 stack-data = [
     {file = "stack_data-0.2.0-py3-none-any.whl", hash = "sha256:999762f9c3132308789affa03e9271bbbe947bf78311851f4d485d8402ed858e"},
     {file = "stack_data-0.2.0.tar.gz", hash = "sha256:45692d41bd633a9503a5195552df22b583caf16f0b27c4e58c98d88c8b648e12"},
@@ -2196,7 +2220,10 @@ tomli = [
     {file = "tomli-2.0.1-py3-none-any.whl", hash = "sha256:939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc"},
     {file = "tomli-2.0.1.tar.gz", hash = "sha256:de526c12914f0c550d15924c62d72abc48d6fe7364aa87328337a31007fe8a4f"},
 ]
+<<<<<<< HEAD
 torch = []
+=======
+>>>>>>> b1aca98022bd4498a3e92d96c41e304424584a6b
 tqdm = [
     {file = "tqdm-4.64.0-py2.py3-none-any.whl", hash = "sha256:74a2cdefe14d11442cedf3ba4e21a3b84ff9a2dbdc6cfae2c34addb2a14a5ea6"},
     {file = "tqdm-4.64.0.tar.gz", hash = "sha256:40be55d30e200777a307a7585aee69e4eabb46b4ec6a4b4a5f2d9f11e7d5408d"},
