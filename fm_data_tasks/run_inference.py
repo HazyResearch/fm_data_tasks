@@ -2,21 +2,17 @@
 import argparse
 import json
 import logging
-import os
 from pathlib import Path
 
 import numpy as np
-import openai
 from tqdm.auto import tqdm
 
 import fm_data_tasks.utils.data_utils as data_utils
 import fm_data_tasks.utils.prompt_utils as prompt_utils
+from fm_data_tasks.utils.client import Client
 from fm_data_tasks.utils.utils import compute_metrics, setup_logger
 
-logging.getLogger("openai").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
-
-openai.api_key = os.environ.get("OPENAI_API_KEY")
 
 
 def parse_args():
@@ -27,6 +23,12 @@ def parse_args():
     )
     parser.add_argument(
         "--output_dir", type=str, help="Output directory", default="outputs"
+    )
+    parser.add_argument(
+        "--cache_file",
+        type=str,
+        help="Cache OpenAI results directory",
+        default="openai_cache.sqlite",
     )
     parser.add_argument("--k", type=int, help="Number examples in prompt", default=1)
     parser.add_argument(
@@ -93,6 +95,7 @@ def main():
     args.data_dir = str(Path(args.data_dir).resolve())
     setup_logger(args.output_dir)
     logger.info(json.dumps(vars(args), indent=4))
+
     # Will set seed for pandas
     np.random.seed(args.seed)
 
@@ -121,6 +124,8 @@ def main():
     logger.info(f"Test shape is {test_data.shape[0]}")
     logger.info(f"Running {args.num_run} examples for {args.num_trials} trials.")
 
+    # Setup client
+    client = Client(args.cache_file)
     trial_metrics = {"prec": [], "rec": [], "f1": [], "acc": []}
     for trial_num in range(args.num_trials):
         np.random.seed(args.seed + trial_num)
@@ -165,7 +170,7 @@ def main():
                 logger.info(string)
                 logger.info("**********************")
             if not args.dry_run:
-                response = openai.Completion.create(
+                response = client.query(
                     engine=args.model_name,
                     prompt=string,
                     temperature=args.temperature,
@@ -174,6 +179,7 @@ def main():
                     frequency_penalty=0,
                     presence_penalty=0,
                     n=1,
+                    ignore_cache=False,
                 )
                 vals = [
                     response["choices"][i]["text"]
