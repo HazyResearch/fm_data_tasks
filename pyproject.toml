@@ -25,14 +25,8 @@ wandb = "^0.12.14"
 ujson = "^5.2.0"
 flake8 = "^4.0.1"
 pre-commit = "^2.19.0"
-<<<<<<< HEAD
-=======
 sqlitedict = "^2.0.0"
-<<<<<<< HEAD
->>>>>>> b1aca98022bd4498a3e92d96c41e304424584a6b
-=======
 sentence-transformers = "^2.2.0"
->>>>>>> fe9cf8256572b4d1a6d69ae8ccf77059deb8e888
 
 
 [build-system]
