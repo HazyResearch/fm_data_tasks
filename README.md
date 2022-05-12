@@ -18,17 +18,12 @@ or
 make install
 ```
 
-<<<<<<< HEAD
-Unpack the data:
-```
-tar xvf data/datasets.tar.gz
 =======
 Download and unpack the data:
 ```
 mkdir data
 wget https://fm-data-tasks.s3.us-west-1.amazonaws.com/datasets.tar.gz -P data
 tar xvf data/datasets.tar.gz -C data/
->>>>>>> b1aca98022bd4498a3e92d96c41e304424584a6b
 ```
 
 # Setup
@@ -39,8 +34,6 @@ export DATASET_PATH="$PWD/data/datasets"
 ```
 
 # Run
-<<<<<<< HEAD
-=======
 To run inference, use
 ```
 python3 -m fm_data_tasks.run_infernece --help
@@ -69,4 +62,3 @@ python3 -m fm_data_tasks.run_inference \
     --sample_method manual \
     --data_dir data/datasets/data_imputation/Restaurant
 ```
->>>>>>> b1aca98022bd4498a3e92d96c41e304424584a6b
