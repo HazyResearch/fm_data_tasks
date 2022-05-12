@@ -18,7 +18,6 @@ or
 make install
 ```
 
-=======
 Download and unpack the data:
 ```
 mkdir data
