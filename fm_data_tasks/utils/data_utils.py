@@ -33,7 +33,7 @@ def serialize_row(
         if str(row[c_og]) == "nan":
             row[c_og] = nan_tok
         else:
-            row[c_og] = f"{row[c_og].strip()}"
+            row[c_og] = f"{row[c_og]}".strip()
         res.append(f"{c_map}: {row[c_og]}".lstrip())
     if len(sep_tok) > 0 and sep_tok != ".":
         sep_tok = f" {sep_tok}"
@@ -337,7 +337,9 @@ def read_data(
         )
 
     # Read validation
-    data_files_sep["validation"] = read_data_func(valid_file)
+    if valid_file.exists():
+        data_files_sep["validation"] = read_data_func(valid_file)
     # Read test
-    data_files_sep["test"] = read_data_func(test_file)
+    if test_file.exists():
+        data_files_sep["test"] = read_data_func(test_file)
     return data_files_sep

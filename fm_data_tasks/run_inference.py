@@ -5,12 +5,10 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from tqdm.auto import tqdm
-
+from manifest import Manifest, Prompt
 import fm_data_tasks.utils.data_utils as data_utils
 import fm_data_tasks.utils.prompt_utils as prompt_utils
 from fm_data_tasks.utils import constants
-from fm_data_tasks.utils.client import Client
 from fm_data_tasks.utils.utils import compute_metrics, setup_logger
 
 logger = logging.getLogger(__name__)
@@ -29,10 +27,30 @@ def parse_args() -> argparse.Namespace:
         "--output_dir", type=str, help="Output directory.", default="outputs"
     )
     parser.add_argument(
-        "--cache_file",
+        "--cache_name",
         type=str,
-        help="File to cache input/output results.",
-        default="openai_cache.sqlite",
+        help="Manifest cache type.",
+        default="redis",
+        choices=["redis", "sqlite"],
+    )
+    parser.add_argument(
+        "--cache_connection",
+        type=str,
+        help="Manifest cache connection string.",
+        default="localhost:6379",
+    )
+    parser.add_argument(
+        "--client_name",
+        type=str,
+        help="Manifest client type.",
+        default="openai",
+        choices=["openai", "opt", "huggingface"],
+    )
+    parser.add_argument(
+        "--client_connection",
+        type=str,
+        help="Manifest client connection string.",
+        default=None,
     )
     parser.add_argument(
         "--overwrite_cache",
@@ -45,15 +63,7 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Example generation method",
         default="random",
-        choices=["random", "manual", "validation_clusters"],
-    )
-    parser.add_argument(
-        "--validation_path",
-        type=str,
-        default=None,
-        help="Path to validation data error feather file. I.e., the result of \
-            running `run_inference` of validation data. Used with \
-            validation_clusters method.",
+        choices=["random", "manual"],
     )
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument(
@@ -73,18 +83,6 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Token to represent nan entries. Default is 'nan'.",
         default="nan",
-    )
-    parser.add_argument(
-        "--model_name",
-        type=str,
-        help="Which OpenAI model to use.",
-        default="text-davinci-002",
-        choices=[
-            "text-davinci-002",
-            "text-curie-001",
-            "text-babbage-001",
-            "text-ada-001",
-        ],
     )
     parser.add_argument(
         "--num_run",
@@ -114,7 +112,7 @@ def parse_args() -> argparse.Namespace:
         "--dry_run", help="Dry run. Do not actually ping model.", action="store_true"
     )
 
-    # Open AI args
+    # Model args
     parser.add_argument("--temperature", type=float, help="Temperature.", default=0.0)
     parser.add_argument(
         "--max_tokens", type=int, help="Max tokens to generate.", default=3
@@ -129,11 +127,6 @@ def main():
     args = parse_args()
     if args.num_trials < 1:
         raise ValueError("num_trials must be greater than 0.")
-    if args.sample_method == "validation_clusters" and args.validation_path is None:
-        raise ValueError(
-            "validation_path must be provided when \
-             sample_method is validation_clusters."
-        )
     # Get absolute path
     args.data_dir = str(Path(args.data_dir).resolve())
     setup_logger(args.output_dir)
@@ -160,96 +153,73 @@ def main():
     test_data = pd_data_files[test_file]
     task = constants.DATA2TASK[args.data_dir]
     task_instruction = constants.DATA2INSTRUCT[args.data_dir]
-
+    num_run = args.num_run
     if args.num_run == -1:
-        args.num_run = test_data.shape[0]
-    args.num_run = min(args.num_run, test_data.shape[0])
+        num_run = test_data.shape[0]
+    num_run = min(num_run, test_data.shape[0])
 
     logger.info(f"Train shape is {train_data.shape[0]}")
     logger.info(f"Test shape is {test_data.shape[0]}")
-    logger.info(f"Running {args.num_run} examples for {args.num_trials} trials.")
+    logger.info(f"Running {num_run} examples for {args.num_trials} trials.")
 
-    # Setup client
-    client = Client(args.cache_file)
+    # Setup manifest
+    manifest = Manifest(
+        cache_name=args.cache_name,
+        cache_connection=args.cache_connection,
+        client_name=args.client_name,
+        client_connection=args.client_connection,
+        stop_token="\n",
+        temperature=args.temperature,
+        max_tokens=args.max_tokens,
+        top_p=1,
+        n=1,
+    )
+    if args.add_task_instruction:
+        prompt = Prompt(lambda x: f"{task_instruction} {x}")
+    else:
+        prompt = Prompt(lambda x: f"{x}")
     trial_metrics = {"prec": [], "rec": [], "f1": [], "acc": []}
-    # Cache prefix for validation_clusters
-    saved_prefix = None
+
     for trial_num in range(args.num_trials):
         np.random.seed(args.seed + trial_num)
-        entries = []
-        prefixes = []
-        preds = []
-        model_inputs = []
+        queries = []
         for _, row in test_data.iterrows():
             serialized_r = row["text"]
-            entries.append(serialized_r)
 
             if args.sample_method == "manual":
                 prefix_exs = prompt_utils.get_manual_prompt(args.data_dir, row)
-            elif args.sample_method == "validation_clusters":
-                if saved_prefix is None:
-                    logger.info("Generating validation cluster prompt.")
-                    saved_prefix = prompt_utils.get_validation_prompt(
-                        args.validation_path,
-                        num_examples=args.k,
-                        task=task,
-                    )
-                prefix_exs = saved_prefix
             else:
                 prefix_exs = prompt_utils.get_random_prompt(
                     pd_data_files["train"], num_examples=args.k
                 )
-            if args.add_task_instruction:
-                prefixes.append(task_instruction + " " + prefix_exs + "\n")
+            queries.append((prefix_exs + "\n" + serialized_r).strip())
+        
+        gt = test_data["label_str"]
+        preds = []
+        idx = 0
+        # Run a few for printing -- they are cached
+        for _ in range(min(num_run, args.num_print)):
+            logger.info(queries[idx])
+            if not args.dry_run:
+                pred = manifest.run(prompt, queries[idx], overwrite_cache=args.overwrite_cache)
             else:
-                prefixes.append(prefix_exs + "\n")
+                pred = ""
+            preds.append(pred)
+            logger.info(f"====> {pred} <====")
+            idx += 1
 
         # Send to model for predictions
-        gt = test_data["label_str"]
-        num_print = args.num_print
-        for prefix, query in tqdm(
-            zip(prefixes, entries),
-            desc=f"Querying trial {trial_num}",
-            total=args.num_run,
-        ):
-            if len(model_inputs) >= args.num_run:
-                break
-            string = (prefix + query).strip()
-            model_inputs.append(string)
-
-            if num_print > 0:
-                logger.info(string)
-                logger.info("**********************")
-            if not args.dry_run:
-                response = client.query(
-                    engine=args.model_name,
-                    prompt=string,
-                    temperature=args.temperature,
-                    max_tokens=args.max_tokens,
-                    top_p=1,
-                    frequency_penalty=0,
-                    presence_penalty=0,
-                    n=1,
-                    overwrite_cache=args.overwrite_cache,
-                )
-                vals = [
-                    response["choices"][i]["text"]
-                    for i in range(len(response["choices"]))
-                ]
-                # Take tokens before first \n
-                vals = " ".join([val.strip().split("\n")[0] for val in vals]).strip()
-                if num_print > 0:
-                    logger.info(f"====> {vals} <====")
-                preds.append(vals)
-            else:
-                preds.append("")
-            num_print -= 1
-
+        if not args.dry_run:
+            preds.extend(manifest.run_batch(prompt, queries[idx:num_run], overwrite_cache=args.overwrite_cache, verbose=True))
+        else:
+            preds = [""]*(num_run-idx)
+        
+        
         # Save trial predictions
-        save_data = test_data.iloc[: args.num_run].copy(deep=True).reset_index()
-        gt = gt[: args.num_run]
+        save_data = test_data.iloc[:num_run].copy(deep=True).reset_index()
+        gt = gt[:num_run]
         save_data["preds"] = preds
-        save_data["model_inputs"] = model_inputs
+        save_data["queries"] = queries[:num_run]
 
         prec, rec, acc, f1 = compute_metrics(preds, gt, task)
 
@@ -266,7 +236,7 @@ def main():
             Path(args.output_dir)
             / f"{Path(args.data_dir).stem}"
             / f"{test_file}"
-            / f"{args.model_name}"
+            / f"{args.client_name}"
             f"_{args.k}k"
             f"_{int(args.class_balanced)}cb"
             f"_{args.sample_method}"
