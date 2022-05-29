@@ -25,10 +25,8 @@ def compute_metrics(preds: List, golds: List, task: str):
         label = label.strip().lower()
         pred = pred.strip().lower()
         mets["total"] += 1
-        if task == "data_imputation":
+        if task in {"data_imputation", "entity_matching", "error_detection", "T0", "T0pp"}:
             crc = pred == label
-        elif task in {"entity_matching", "error_detection"}:
-            crc = pred.startswith(label)
         else:
             raise ValueError(f"Unknown task: {task}")
         # Measure equal accuracy for generation

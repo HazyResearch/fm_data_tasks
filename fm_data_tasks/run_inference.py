@@ -53,6 +53,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
     )
     parser.add_argument(
+        "--run_tag",
+        type=str,
+        help="Tag for run saving.",
+        default="default",
+    )
+    parser.add_argument(
         "--overwrite_cache",
         action="store_true",
         help="Overwrite sqlite cache of input/output results.",
@@ -171,7 +177,7 @@ def main():
         stop_token="\n",
         temperature=args.temperature,
         max_tokens=args.max_tokens,
-        top_p=1,
+        top_p=1.0,
         n=1,
     )
     if args.add_task_instruction:
@@ -199,7 +205,7 @@ def main():
         idx = 0
         # Run a few for printing -- they are cached
         for _ in range(min(num_run, args.num_print)):
-            logger.info(queries[idx])
+            logger.info(prompt(queries[idx]))
             if not args.dry_run:
                 pred = manifest.run(prompt, queries[idx], overwrite_cache=args.overwrite_cache)
             else:
@@ -236,8 +242,10 @@ def main():
             Path(args.output_dir)
             / f"{Path(args.data_dir).stem}"
             / f"{test_file}"
-            / f"{args.client_name}"
-            f"_{args.k}k"
+            / f"{args.client_connection.split('/')[-1]}"
+            / f"{args.run_tag}"
+            / f"{args.k}k"
+            f"_{int(args.add_task_instruction)}inst"
             f"_{int(args.class_balanced)}cb"
             f"_{args.sample_method}"
             f"_{args.num_run}run"
