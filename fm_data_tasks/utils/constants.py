@@ -81,31 +81,56 @@ DATA2COLREMAP = {
 }
 
 
-DATA2INSTRUCT = {
-    f"{DATASET_PATH}/entity_matching/structured/Amazon-Google": "Are Product A and Product B the same? Yes or No?",
-    f"{DATASET_PATH}/entity_matching/structured/Beer": "Are Product A and Product B the same? Yes or No?",
-    f"{DATASET_PATH}/entity_matching/structured/DBLP-ACM": "Are Product A and Product B the same? Yes or No?",
-    f"{DATASET_PATH}/entity_matching/structured/DBLP-GoogleScholar": "Are Product A and Product B the same? Yes or No?",
-    f"{DATASET_PATH}/entity_matching/structured/Fodors-Zagats": "Are Product A and Product B the same? Yes or No?",
-    f"{DATASET_PATH}/entity_matching/structured/iTunes-Amazon": "Are Song A and Song B the same? Yes or No?",
-    f"{DATASET_PATH}/entity_matching/structured/Walmart-Amazon": "Are Product A and Product B the same? Yes or No?",
-    f"{DATASET_PATH}/data_imputation/Buy": "Who is the manufacturer? apple, sony, lg electronics?",
-    f"{DATASET_PATH}/data_imputation/Restaurant": "What is the city? san fransisco, new york, denver?",
-    f"{DATASET_PATH}/error_detection/Hospital": "Is there a x spelling error? Yes or No?",
+# DATA2INSTRUCT = {
+#     f"{DATASET_PATH}/entity_matching/structured/Amazon-Google": "Are Product A and Product B the same? Yes or No?",
+#     f"{DATASET_PATH}/entity_matching/structured/Beer": "Are Product A and Product B the same? Yes or No?",
+#     f"{DATASET_PATH}/entity_matching/structured/DBLP-ACM": "Are Product A and Product B the same? Yes or No?",
+#     f"{DATASET_PATH}/entity_matching/structured/DBLP-GoogleScholar": "Are Product A and Product B the same? Yes or No?",
+#     f"{DATASET_PATH}/entity_matching/structured/Fodors-Zagats": "Are Product A and Product B the same? Yes or No?",
+#     f"{DATASET_PATH}/entity_matching/structured/iTunes-Amazon": "Are Song A and Song B the same? Yes or No?",
+#     f"{DATASET_PATH}/entity_matching/structured/Walmart-Amazon": "Are Product A and Product B the same? Yes or No?",
+#     f"{DATASET_PATH}/data_imputation/Buy": "Who is the manufacturer? apple, sony, lg electronics?",
+#     f"{DATASET_PATH}/data_imputation/Restaurant": "What is the city? san fransisco, new york, denver?",
+#     f"{DATASET_PATH}/error_detection/Hospital": "Is there a x spelling error? Yes or No?",
+# }
+
+TASK2INSTRUCT = {
+    "entity_matching": [
+        "Are Product A and Product B the same? Yes or No?",
+    ],
+    "data_imputation": [
+        "What is the missing value?",
+    ],
+    "error_detection": [
+        "Is there a spelling error? Yes or No?",
+    ],
 }
 
-DATA2SUFFIX = {
-    f"{DATASET_PATH}/entity_matching/structured/Amazon-Google": " Are Product A and Product B the same?",
-    f"{DATASET_PATH}/entity_matching/structured/Beer": " Are Product A and Product B the same?",
-    f"{DATASET_PATH}/entity_matching/structured/DBLP-ACM": " Are Product A and Product B the same?",
-    f"{DATASET_PATH}/entity_matching/structured/DBLP-GoogleScholar": " Are Product A and Product B the same?",
-    f"{DATASET_PATH}/entity_matching/structured/Fodors-Zagats": " Are Product A and Product B the same?",
-    f"{DATASET_PATH}/entity_matching/structured/iTunes-Amazon": " Same Song?",
-    f"{DATASET_PATH}/entity_matching/structured/Walmart-Amazon": " Are A and B the Same?",
-    f"{DATASET_PATH}/data_imputation/Buy": " Who is the manufacturer?",
-    f"{DATASET_PATH}/data_imputation/Restaurant": " What is the city?",
-    f"{DATASET_PATH}/error_detection/Hospital": "?",
+# DATA2SUFFIX = {
+#     f"{DATASET_PATH}/entity_matching/structured/Amazon-Google": " Are Product A and Product B the same?",
+#     f"{DATASET_PATH}/entity_matching/structured/Beer": " Are Product A and Product B the same?",
+#     f"{DATASET_PATH}/entity_matching/structured/DBLP-ACM": " Are Product A and Product B the same?",
+#     f"{DATASET_PATH}/entity_matching/structured/DBLP-GoogleScholar": " Are Product A and Product B the same?",
+#     f"{DATASET_PATH}/entity_matching/structured/Fodors-Zagats": " Are Product A and Product B the same?",
+#     f"{DATASET_PATH}/entity_matching/structured/iTunes-Amazon": " Same Song?",
+#     f"{DATASET_PATH}/entity_matching/structured/Walmart-Amazon": " Are A and B the Same?",
+#     f"{DATASET_PATH}/data_imputation/Buy": " Who is the manufacturer?",
+#     f"{DATASET_PATH}/data_imputation/Restaurant": " What is the city?",
+#     f"{DATASET_PATH}/error_detection/Hospital": "?",
+# }
+
+TASK2SUFFIX = {
+    "entity_matching": [
+        " Are Product A and Product B the same?",
+    ],
+    "data_imputation": [
+        " What is the missing value?",
+    ],
+    "error_detection": [
+        "?",
+    ],
 }
+
 
 DATA2EXAMPLE_SUBKEY_ATTR = {
     f"{DATASET_PATH}/entity_matching/structured/Amazon-Google": "manufacturer_A",

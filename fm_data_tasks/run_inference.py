@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 from manifest import Manifest, Prompt
+
 import fm_data_tasks.utils.data_utils as data_utils
 import fm_data_tasks.utils.prompt_utils as prompt_utils
 from fm_data_tasks.utils import constants
@@ -69,7 +70,7 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Example generation method",
         default="random",
-        choices=["random", "manual"],
+        choices=["random", "manual", "validation_clusters"],
     )
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument(
@@ -113,6 +114,7 @@ def parse_args() -> argparse.Namespace:
         help="Add task instruction to the prompt before examples.",
         action="store_true",
     )
+    parser.add_argument("--task_instruction_idx", type=int, default=0)
     parser.add_argument("--do_test", help="Run on test file.", action="store_true")
     parser.add_argument(
         "--dry_run", help="Dry run. Do not actually ping model.", action="store_true"
@@ -147,8 +149,9 @@ def main():
     pd_data_files = data_utils.read_data(
         data_dir=args.data_dir,
         class_balanced=args.class_balanced,
-        add_prefix=False,
+        add_instruction=False,
         max_train_samples=-1,
+        max_train_percent=-1,
         sep_tok=args.sep_tok,
         nan_tok=args.nan_tok,
     )
@@ -158,7 +161,8 @@ def main():
     train_data = pd_data_files["train"]
     test_data = pd_data_files[test_file]
     task = constants.DATA2TASK[args.data_dir]
-    task_instruction = constants.DATA2INSTRUCT[args.data_dir]
+    logger.info(f"Using {args.task_instruction_idx} instruction idx")
+    task_instruction = constants.TASK2INSTRUCT[task][args.task_instruction_idx]
     num_run = args.num_run
     if args.num_run == -1:
         num_run = test_data.shape[0]
@@ -186,20 +190,31 @@ def main():
         prompt = Prompt(lambda x: f"{x}")
     trial_metrics = {"prec": [], "rec": [], "f1": [], "acc": []}
 
+    saved_prefix = None
     for trial_num in range(args.num_trials):
         np.random.seed(args.seed + trial_num)
         queries = []
         for _, row in test_data.iterrows():
             serialized_r = row["text"]
-
             if args.sample_method == "manual":
                 prefix_exs = prompt_utils.get_manual_prompt(args.data_dir, row)
+            elif args.sample_method == "validation_clusters":
+                if saved_prefix is None:
+                    logger.info("Generating validation cluster prompt.")
+                    saved_prefix = prompt_utils.get_validation_prompt(
+                        args.validation_path,
+                        num_examples=args.k,
+                        task=task,
+                    )
+                prefix_exs = saved_prefix
             else:
-                prefix_exs = prompt_utils.get_random_prompt(
-                    pd_data_files["train"], num_examples=args.k
-                )
+                if saved_prefix is None:
+                    saved_prefix = prompt_utils.get_random_prompt(
+                        pd_data_files["train"], num_examples=args.k
+                    )
+                prefix_exs = saved_prefix
             queries.append((prefix_exs + "\n" + serialized_r).strip())
-        
+
         gt = test_data["label_str"]
         preds = []
         idx = 0
@@ -207,7 +222,9 @@ def main():
         for _ in range(min(num_run, args.num_print)):
             logger.info(prompt(queries[idx]))
             if not args.dry_run:
-                pred = manifest.run(prompt, queries[idx], overwrite_cache=args.overwrite_cache)
+                pred = manifest.run(
+                    prompt, queries[idx], overwrite_cache=args.overwrite_cache
+                )
             else:
                 pred = ""
             preds.append(pred)
@@ -216,11 +233,17 @@ def main():
 
         # Send to model for predictions
         if not args.dry_run:
-            preds.extend(manifest.run_batch(prompt, queries[idx:num_run], overwrite_cache=args.overwrite_cache, verbose=True))
+            preds.extend(
+                manifest.run_batch(
+                    prompt,
+                    queries[idx:num_run],
+                    overwrite_cache=args.overwrite_cache,
+                    verbose=True,
+                )
+            )
         else:
-            preds = [""]*(num_run-idx)
-        
-        
+            preds = [""] * (num_run - idx)
+
         # Save trial predictions
         save_data = test_data.iloc[:num_run].copy(deep=True).reset_index()
         gt = gt[:num_run]
