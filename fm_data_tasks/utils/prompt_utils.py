@@ -19,7 +19,6 @@ def get_manual_prompt(data_dir: str, example: pd.Series) -> str:
     subkey_attr = constants.DATA2EXAMPLE_SUBKEY_ATTR[data_dir]
     if subkey_attr is None:
         if not isinstance(constants.PREFIXES[data_dir], str):
-            print(data_dir)
             raise ValueError(f"Prefix was not a string for {data_dir}")
         return constants.PREFIXES[data_dir]
     else:

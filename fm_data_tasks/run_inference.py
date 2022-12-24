@@ -180,7 +180,7 @@ def main():
         prefixes = []
         preds = []
         model_inputs = []
-        for _, row in test_data.iterrows():
+        for i, row in test_data.iterrows():
             serialized_r = row["text"]
             entries.append(serialized_r)
 

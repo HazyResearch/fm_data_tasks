@@ -84,7 +84,7 @@ def serialize_imputation(
     return res
 
 
-def serialize_error_detection(
+def serialize_error_detection_spelling(
     row: pd.core.series.Series,
     add_prefix: bool,
     instruction: str,
@@ -97,6 +97,37 @@ def serialize_error_detection(
     res = f"Is there a x spelling error in {serialize_row(row, column_map, sep_tok, nan_tok)}{suffix} "
     if add_prefix:
         res = f"{instruction} {res}"
+    return res
+
+def serialize_error_detection(
+    row: pd.core.series.Series,
+    add_prefix: bool,
+    instruction: str,
+    suffix: str,
+    sep_tok: str,
+    nan_tok: str,
+) -> str:
+    """Turn single cell into string for error detection."""
+    print(row)
+    column_map = {row["col_name"]: row["col_name"]}
+    res = f"{serialize_row(row, column_map, sep_tok, nan_tok)}{suffix}"
+    if add_prefix:
+        res = f"{instruction} {res}"
+    return res
+
+
+def serialize_schema_match(
+    row: pd.core.series.Series,
+    add_prefix: bool,
+    instruction: str,
+    suffix: str,
+    sep_tok: str,
+    nan_tok: str,
+) -> str:
+    """Turn single cell into string for schema matching."""
+    res = f"A is {row['left']}. B is {row['right']}. {suffix} "
+    if add_prefix:
+        res = f"{instruction}\n\n{res}"
     return res
 
 
@@ -201,6 +232,7 @@ def read_error_detection_single(
     suffix: str,
     sep_tok: str,
     nan_tok: str,
+    spelling: bool,
 ) -> pd.DataFrame:
     """Read in table and create label impute col."""
     for c in cols_to_drop:
@@ -210,8 +242,59 @@ def read_error_detection_single(
     # row_id, col_name, is_clean
     labels = pd.read_csv(split_path)
     merged = pd.merge(labels, table, left_on="row_id", right_index=True)
-    merged["text"] = merged.apply(
-        lambda row: serialize_error_detection(
+    if spelling:
+        merged["text"] = merged.apply(
+            lambda row: serialize_error_detection_spelling(
+                row,
+                add_prefix,
+                instruction,
+                suffix,
+                sep_tok,
+                nan_tok,
+            ),
+            axis=1,
+        )
+    else:
+        merged["text"] = merged.apply(
+            lambda row: serialize_error_detection(
+                row,
+                add_prefix,
+                instruction,
+                suffix,
+                sep_tok,
+                nan_tok,
+            ),
+            axis=1,
+        )
+
+    
+    merged["label_str"] = merged.apply(
+        lambda row: "No\n" if row["is_clean"] == 1 else "Yes\n", axis=1
+    )
+    return merged
+
+def read_schema_match_single(
+    split_path: str,
+    table: pd.DataFrame,
+    cols_to_drop: List[str],
+    col_renaming: Dict[str, str],
+    add_prefix: bool,
+    instruction: str,
+    suffix: str,
+    sep_tok: str,
+    nan_tok: str,
+) -> pd.DataFrame:
+    """Read in table and create label impute col."""
+    file = pd.read_csv(split_path)
+    for c in cols_to_drop:
+        file = file.drop(c, axis=1, inplace=False)
+    if len(col_renaming) > 0:
+        file = file.rename(columns=col_renaming, inplace=False)
+    # row_id, col_name, is_clean
+    #labels = pd.read_csv(split_path)
+    #merged = pd.merge(labels, table, left_on="Unnamed: 0", right_index=True)
+    file["text"] = file.apply(
+        lambda row: serialize_schema_match(
             row,
             add_prefix,
             instruction,
@@ -221,10 +304,10 @@ def read_error_detection_single(
         ),
         axis=1,
     )
-    merged["label_str"] = merged.apply(
-        lambda row: "No\n" if row["is_clean"] == 1 else "Yes\n", axis=1
+    file["label_str"] = file.apply(
+        lambda row: "No\n" if row["label"] == 0 else "Yes\n", axis=1
     )
-    return merged
+    return file
 
 
 def read_data(
@@ -288,15 +371,55 @@ def read_data(
             sep_tok=sep_tok,
             nan_tok=nan_tok,
         )
+    elif task == "error_detection_spelling":
+        train_file = data_dir_p / "train.csv"
+        valid_file = data_dir_p / "valid.csv"
+        test_file = data_dir_p / "test.csv"
+        table_file = data_dir_p / "table.csv"
+
+        table = pd.read_csv(table_file)
+        label_col = "is_clean"
+        read_data_func = partial(
+            read_error_detection_single,
+            table=table,
+            cols_to_drop=cols_to_drop,
+            col_renaming=col_renaming,
+            add_prefix=add_prefix,
+            instruction=instruction,
+            suffix=suffix,
+            sep_tok=sep_tok,
+            nan_tok=nan_tok,
+            spelling=True,
+        )
     elif task == "error_detection":
         train_file = data_dir_p / "train.csv"
         valid_file = data_dir_p / "valid.csv"
         test_file = data_dir_p / "test.csv"
         table_file = data_dir_p / "table.csv"
+
         table = pd.read_csv(table_file)
         label_col = "is_clean"
         read_data_func = partial(
             read_error_detection_single,
+            table=table,
+            cols_to_drop=cols_to_drop,
+            col_renaming=col_renaming,
+            add_prefix=add_prefix,
+            instruction=instruction,
+            suffix=suffix,
+            sep_tok=sep_tok,
+            nan_tok=nan_tok,
+            spelling=False,
+        )
+    elif task == "schema_matching":
+        train_file = data_dir_p / "train.csv"
+        valid_file = data_dir_p / "valid.csv"
+        test_file = data_dir_p / "test.csv"
+        table_file = data_dir_p / "table.csv"
+        label_col = "label"
+        table = pd.read_csv(table_file)
+        read_data_func = partial(
+            read_schema_match_single,
             table=table,
             cols_to_drop=cols_to_drop,
             col_renaming=col_renaming,
