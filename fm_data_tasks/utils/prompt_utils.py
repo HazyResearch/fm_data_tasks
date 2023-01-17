@@ -34,7 +34,7 @@ def get_random_prompt(train_data: pd.DataFrame, num_examples: int = 10) -> str:
     """Get random examples for prompt from trian data."""
     prefix_exs_rows = sample_train_data(train_data, num_examples)
     serialized_prefixes = [
-        (txt + label).strip()
+        (txt.strip() + " " + label.strip())
         for txt, label in zip(prefix_exs_rows["text"], prefix_exs_rows["label_str"])
     ]
     prefix_exs = "\n\n".join(serialized_prefixes) + "\n"
