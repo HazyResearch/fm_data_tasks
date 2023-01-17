@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from manifest import Manifest, Prompt
+from manifest import Manifest
 
 import fm_data_tasks.utils.data_utils as data_utils
 import fm_data_tasks.utils.prompt_utils as prompt_utils
@@ -31,14 +31,14 @@ def parse_args() -> argparse.Namespace:
         "--cache_name",
         type=str,
         help="Manifest cache type.",
-        default="redis",
-        choices=["redis", "sqlite"],
+        default="sqlite",
+        choices=["redis", "sqlite", "noop"],
     )
     parser.add_argument(
         "--cache_connection",
         type=str,
         help="Manifest cache connection string.",
-        default="localhost:6379",
+        default="fm_data_tasks.sqlite",
     )
     parser.add_argument(
         "--client_name",
@@ -185,9 +185,9 @@ def main():
         n=1,
     )
     if args.add_task_instruction:
-        prompt = Prompt(lambda x: f"{task_instruction} {x}")
+        prompt = lambda x: f"{task_instruction} {x}"
     else:
-        prompt = Prompt(lambda x: f"{x}")
+        prompt = lambda x: f"{x}"
     trial_metrics = {"prec": [], "rec": [], "f1": [], "acc": []}
 
     saved_prefix = None
@@ -223,7 +223,7 @@ def main():
             logger.info(prompt(queries[idx]))
             if not args.dry_run:
                 pred = manifest.run(
-                    prompt, queries[idx], overwrite_cache=args.overwrite_cache
+                    prompt(queries[idx]), overwrite_cache=args.overwrite_cache
                 )
             else:
                 pred = ""
@@ -233,16 +233,15 @@ def main():
 
         # Send to model for predictions
         if not args.dry_run:
-            preds.extend(
-                manifest.run_batch(
-                    prompt,
-                    queries[idx:num_run],
-                    overwrite_cache=args.overwrite_cache,
-                    verbose=True,
+            for query in queries[idx:num_run]:
+                preds.append(
+                    manifest.run(
+                        prompt(query),
+                        overwrite_cache=args.overwrite_cache,
+                    )
                 )
-            )
         else:
-            preds = [""] * (num_run - idx)
+            preds.extend([""] * (num_run - idx))
 
         # Save trial predictions
         save_data = test_data.iloc[:num_run].copy(deep=True).reset_index()
@@ -265,7 +264,6 @@ def main():
             Path(args.output_dir)
             / f"{Path(args.data_dir).stem}"
             / f"{test_file}"
-            / f"{args.client_connection.split('/')[-1]}"
             / f"{args.run_tag}"
             / f"{args.k}k"
             f"_{int(args.add_task_instruction)}inst"
