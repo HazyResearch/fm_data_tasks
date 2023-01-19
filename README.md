@@ -1,4 +1,12 @@
-This is the repo for Can Foundation Models Wrangle Your Data?.
+# Foundation Models For Data Wrangling
+
+This is the official repo for [Can Foundation Models Wrangle Your Data?] (<https://arxiv.org/abs/2205.09911>), which will be appearing in VLDB'23.
+
+Please check out our [blog post](https://hazyresearch.stanford.edu/blog/2023-01-13-datawrangling) to learn more about this project and our motivations!
+
+We are excited to have you try out our methods on your own structured data tasks! If you have other data tasks where our methods could be useful, feel free to shoot as a note!
+
+Contact: Avanika Narayan ([avanikan@stanford.edu](mailto:avanikan@stanford.edu))
 
 # Install
 Download the code:
