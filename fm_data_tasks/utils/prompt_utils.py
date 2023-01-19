@@ -19,7 +19,6 @@ def get_manual_prompt(data_dir: str, example: pd.Series) -> str:
     subkey_attr = constants.DATA2EXAMPLE_SUBKEY_ATTR[data_dir]
     if subkey_attr is None:
         if not isinstance(constants.PREFIXES[data_dir], str):
-            print(data_dir)
             raise ValueError(f"Prefix was not a string for {data_dir}")
         return constants.PREFIXES[data_dir]
     else:
@@ -34,7 +33,7 @@ def get_random_prompt(train_data: pd.DataFrame, num_examples: int = 10) -> str:
     """Get random examples for prompt from trian data."""
     prefix_exs_rows = sample_train_data(train_data, num_examples)
     serialized_prefixes = [
-        (txt.strip() + " " + label.strip())
+        (txt + label).strip()
         for txt, label in zip(prefix_exs_rows["text"], prefix_exs_rows["label_str"])
     ]
     prefix_exs = "\n\n".join(serialized_prefixes) + "\n"

@@ -120,6 +120,10 @@ def parse_args() -> argparse.Namespace:
         "--dry_run", help="Dry run. Do not actually ping model.", action="store_true"
     )
 
+    parser.add_argument(
+        "--stop_token", help="Token to stop on for a given generated response", default="\n"
+    )
+
     # Model args
     parser.add_argument("--temperature", type=float, help="Temperature.", default=0.0)
     parser.add_argument(
@@ -162,7 +166,7 @@ def main():
     test_data = pd_data_files[test_file]
     task = constants.DATA2TASK[args.data_dir]
     logger.info(f"Using {args.task_instruction_idx} instruction idx")
-    task_instruction = constants.TASK2INSTRUCT[task][args.task_instruction_idx]
+    task_instruction = constants.DATA2INSTRUCT[args.data_dir]
     num_run = args.num_run
     if args.num_run == -1:
         num_run = test_data.shape[0]
@@ -178,7 +182,7 @@ def main():
         cache_connection=args.cache_connection,
         client_name=args.client_name,
         client_connection=args.client_connection,
-        stop_token="\n",
+        stop_token=args.stop_token,
         temperature=args.temperature,
         max_tokens=args.max_tokens,
         top_p=1.0,
