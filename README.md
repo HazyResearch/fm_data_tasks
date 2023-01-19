@@ -1,6 +1,6 @@
 # Foundation Models For Data Wrangling
 
-This is the official repo for [Can Foundation Models Wrangle Your Data?] (<https://arxiv.org/abs/2205.09911>), which will be appearing in VLDB'23.
+This is the official repo for [Can Foundation Models Wrangle Your Data?](<https://arxiv.org/abs/2205.09911>), which will be appearing in VLDB'23.
 
 Please check out our [blog post](https://hazyresearch.stanford.edu/blog/2023-01-13-datawrangling) to learn more about this project and our motivations!
 
