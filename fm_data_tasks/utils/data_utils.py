@@ -44,7 +44,7 @@ def serialize_match_pair(
     row: pd.core.series.Series,
     column_mapA: Dict[str, str],
     column_mapB: Dict[str, str],
-    add_prefix: bool,
+    add_instruction: bool,
     instruction: str,
     suffix: str,
     prod_name: str,
@@ -57,7 +57,7 @@ def serialize_match_pair(
         f" {prod_name} B is {serialize_row(row, column_mapB, sep_tok, nan_tok)}."
         f"{suffix} "
     )
-    if add_prefix:
+    if add_instruction:
         res = f"{instruction} {res}"
     return res
 
@@ -66,7 +66,7 @@ def serialize_imputation(
     row: pd.core.series.Series,
     column_map: Dict[str, str],
     impute_col: str,
-    add_prefix: bool,
+    add_instruction: bool,
     instruction: str,
     suffix: str,
     sep_tok: str,
@@ -79,14 +79,14 @@ def serialize_imputation(
     if len(sep_tok) > 0 and sep_tok != ".":
         sep_tok_ws = f" {sep_tok}"
     res = f"{serialize_row(row, column_map, sep_tok, nan_tok)}{sep_tok_ws}{suffix} "
-    if add_prefix:
+    if add_instruction:
         res = f"{instruction} {res}"
     return res
 
 
 def serialize_error_detection_spelling(
     row: pd.core.series.Series,
-    add_prefix: bool,
+    add_instruction: bool,
     instruction: str,
     suffix: str,
     sep_tok: str,
@@ -95,9 +95,10 @@ def serialize_error_detection_spelling(
     """Turn single cell into string for error detection."""
     column_map = {row["col_name"]: row["col_name"]}
     res = f"Is there a x spelling error in {serialize_row(row, column_map, sep_tok, nan_tok)}{suffix} "
-    if add_prefix:
+    if add_instruction:
         res = f"{instruction} {res}"
     return res
+
 
 def serialize_error_detection(
     row: pd.core.series.Series,
@@ -108,9 +109,14 @@ def serialize_error_detection(
     nan_tok: str,
 ) -> str:
     """Turn single cell into string for error detection."""
-    print(row)
+    column_map = {
+        c: c
+        for c in row.index
+        if str(c) not in ["Unnamed: 0", "text", "col_name", "label_str", "is_clean"]
+    }
+    entire_row = serialize_row(row, column_map, sep_tok, nan_tok)
     column_map = {row["col_name"]: row["col_name"]}
-    res = f"{serialize_row(row, column_map, sep_tok, nan_tok)}{suffix}"
+    res = f"{entire_row}\n\nIs there an error in {serialize_row(row, column_map, sep_tok, nan_tok)}{suffix} "
     if add_prefix:
         res = f"{instruction} {res}"
     return res
@@ -137,7 +143,7 @@ def read_blocked_pairs(
     tableB: pd.DataFrame,
     cols_to_drop: List[str],
     col_renaming: Dict[str, str],
-    add_prefix: bool,
+    add_instruction: bool,
     instruction: str,
     suffix: str,
     prod_name: str,
@@ -171,7 +177,7 @@ def read_blocked_pairs(
             row,
             column_mapA,
             column_mapB,
-            add_prefix,
+            add_instruction,
             instruction,
             suffix,
             prod_name,
@@ -191,7 +197,7 @@ def read_imputation_single(
     impute_col: str,
     cols_to_drop: List[str],
     col_renaming: Dict[str, str],
-    add_prefix: bool,
+    add_instruction: bool,
     instruction: str,
     suffix: str,
     sep_tok: str,
@@ -210,7 +216,7 @@ def read_imputation_single(
             row,
             column_map,
             impute_col,
-            add_prefix,
+            add_instruction,
             instruction,
             suffix,
             sep_tok,
@@ -227,7 +233,7 @@ def read_error_detection_single(
     table: pd.DataFrame,
     cols_to_drop: List[str],
     col_renaming: Dict[str, str],
-    add_prefix: bool,
+    add_instruction: bool,
     instruction: str,
     suffix: str,
     sep_tok: str,
@@ -241,12 +247,13 @@ def read_error_detection_single(
         table = table.rename(columns=col_renaming, inplace=False)
     # row_id, col_name, is_clean
     labels = pd.read_csv(split_path)
-    merged = pd.merge(labels, table, left_on="row_id", right_index=True)
+
     if spelling:
+        merged = pd.merge(labels, table, left_on="row_id", right_index=True)
         merged["text"] = merged.apply(
             lambda row: serialize_error_detection_spelling(
                 row,
-                add_prefix,
+                add_instruction,
                 instruction,
                 suffix,
                 sep_tok,
@@ -255,10 +262,11 @@ def read_error_detection_single(
             axis=1,
         )
     else:
+        merged = table
         merged["text"] = merged.apply(
             lambda row: serialize_error_detection(
                 row,
-                add_prefix,
+                add_instruction,
                 instruction,
                 suffix,
                 sep_tok,
@@ -267,18 +275,18 @@ def read_error_detection_single(
             axis=1,
         )
 
-    
     merged["label_str"] = merged.apply(
         lambda row: "No\n" if row["is_clean"] == 1 else "Yes\n", axis=1
     )
     return merged
+
 
 def read_schema_match_single(
     split_path: str,
     table: pd.DataFrame,
     cols_to_drop: List[str],
     col_renaming: Dict[str, str],
-    add_prefix: bool,
+    add_instruction: bool,
     instruction: str,
     suffix: str,
     sep_tok: str,
@@ -291,12 +299,12 @@ def read_schema_match_single(
     if len(col_renaming) > 0:
         file = file.rename(columns=col_renaming, inplace=False)
     # row_id, col_name, is_clean
-    #labels = pd.read_csv(split_path)
-    #merged = pd.merge(labels, table, left_on="Unnamed: 0", right_index=True)
+    # labels = pd.read_csv(split_path)
+    # merged = pd.merge(labels, table, left_on="Unnamed: 0", right_index=True)
     file["text"] = file.apply(
         lambda row: serialize_schema_match(
             row,
-            add_prefix,
+            add_instruction,
             instruction,
             suffix,
             sep_tok,
@@ -310,11 +318,10 @@ def read_schema_match_single(
     return file
 
 
-def read_data(
+def read_raw_data(
     data_dir: str,
-    class_balanced: bool = False,
-    add_prefix: bool = False,
-    max_train_samples: float = -1,
+    add_instruction: bool = False,
+    task_instruction_idx: int = 0,
     sep_tok: str = ".",
     nan_tok: str = "nan",
 ):
@@ -348,7 +355,7 @@ def read_data(
             tableB=tableB,
             cols_to_drop=cols_to_drop,
             col_renaming=col_renaming,
-            add_prefix=add_prefix,
+            add_instruction=add_instruction,
             instruction=instruction,
             suffix=suffix,
             prod_name=constants.MATCH_PROD_NAME[data_dir],
@@ -365,7 +372,7 @@ def read_data(
             impute_col=label_col,
             cols_to_drop=cols_to_drop,
             col_renaming=col_renaming,
-            add_prefix=add_prefix,
+            add_instruction=add_instruction,
             instruction=instruction,
             suffix=suffix,
             sep_tok=sep_tok,
@@ -384,7 +391,7 @@ def read_data(
             table=table,
             cols_to_drop=cols_to_drop,
             col_renaming=col_renaming,
-            add_prefix=add_prefix,
+            add_instruction=add_instruction,
             instruction=instruction,
             suffix=suffix,
             sep_tok=sep_tok,
@@ -404,7 +411,7 @@ def read_data(
             table=table,
             cols_to_drop=cols_to_drop,
             col_renaming=col_renaming,
-            add_prefix=add_prefix,
+            add_instruction=add_instruction,
             instruction=instruction,
             suffix=suffix,
             sep_tok=sep_tok,
@@ -423,7 +430,7 @@ def read_data(
             table=table,
             cols_to_drop=cols_to_drop,
             col_renaming=col_renaming,
-            add_prefix=add_prefix,
+            add_instruction=add_instruction,
             instruction=instruction,
             suffix=suffix,
             sep_tok=sep_tok,
@@ -433,6 +440,34 @@ def read_data(
         raise ValueError(f"Task {task} not recognized.")
 
     data_files_sep["train"] = read_data_func(train_file)
+    # Read validation
+    if valid_file.exists():
+        data_files_sep["validation"] = read_data_func(valid_file)
+    # Read test
+    if test_file.exists():
+        data_files_sep["test"] = read_data_func(test_file)
+    return data_files_sep, label_col
+
+
+def read_data(
+    data_dir: str,
+    class_balanced: bool = False,
+    add_instruction: bool = False,
+    task_instruction_idx: int = 0,
+    max_train_samples: int = -1,
+    max_train_percent: float = -1,
+    sep_tok: str = ".",
+    nan_tok: str = "nan",
+):
+    """Read in data where each directory is unique for a task."""
+    data_files_sep, label_col = read_raw_data(
+        data_dir=data_dir,
+        add_instruction=add_instruction,
+        task_instruction_idx=task_instruction_idx,
+        sep_tok=sep_tok,
+        nan_tok=nan_tok,
+    )
+    task = constants.DATA2TASK[data_dir]
     # Don't class balance on open ended classificiation tasks
     if class_balanced and task != "data_imputation":
         # Class balance sample the train data
@@ -458,9 +493,4 @@ def read_data(
             f"Length of {data_dir} train is "
             f"{data_files_sep['train'].shape[0]} from {orig_train_len}"
         )
-
-    # Read validation
-    data_files_sep["validation"] = read_data_func(valid_file)
-    # Read test
-    data_files_sep["test"] = read_data_func(test_file)
     return data_files_sep
