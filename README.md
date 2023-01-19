@@ -4,6 +4,8 @@ This is the official repo for [Can Foundation Models Wrangle Your Data?](<https:
 
 Please check out our [blog post](https://hazyresearch.stanford.edu/blog/2023-01-13-datawrangling) to learn more about this project and our motivations!
 
+A sampling of these tasks can also be found at the [HELM Benchmark](https://crfm.stanford.edu/helm/latest/). Please checkout this benchmark if you are interested in seeing how a wide range of models perform on these tasks!!!.
+
 We are excited to have you try out our methods on your own structured data tasks! If you have other data tasks where our methods could be useful, feel free to shoot as a note!
 
 Contact: Avanika Narayan ([avanikan@stanford.edu](mailto:avanikan@stanford.edu))
